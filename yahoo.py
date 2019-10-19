@@ -22,7 +22,7 @@ def get_best_photoinfo(photoInfoArr):
     return best
 
 
-def archive_email(yga, reattach=True, save=True, resume=False):
+def archive_email(yga, reattach=True, save=True, resume=False, skip=[]):
     msg_json = yga.messages()
     count = msg_json['totalRecords']
 
@@ -35,6 +35,10 @@ def archive_email(yga, reattach=True, save=True, resume=False):
 
         if resume and os.path.isfile(fname):
             print "* Skipping %s as it already exists" % (id)
+            continue
+
+        if id in skip:
+            print "* Skipping %s as I was told to skip it" %(id)
             continue
 
         print "* Fetching raw message #%d of %d" % (id,count)
@@ -136,6 +140,11 @@ def archive_db(yga, group):
         with open(name, 'w') as f:
             yga.download_file(uri, f)
 
+def get_skiplist(skip):
+    if not skip:
+        return []
+    return [int(i) for i in skip]
+
 class Mkchdir:
     d = ""
     def __init__(self, d):
@@ -160,6 +169,8 @@ if __name__ == "__main__":
     p.add_argument('-cy', '--cookie_y', type=str)
     p.add_argument('-m', '--resume', action='store_true',
             help='Resume download from the cloud; skips messages already on local disk')
+    p.add_argument('-k', '--skip', action='append',
+            help='Message ids to skip; may specify multiple times')
 
     po = p.add_argument_group(title='What to archive', description='By default, all the below.')
     po.add_argument('-e', '--email', action='store_true',
@@ -196,7 +207,7 @@ if __name__ == "__main__":
         if args.email:
             with Mkchdir('email'):
                 archive_email(yga, reattach=(not args.no_reattach), save=(not args.no_save),
-                                    resume=args.resume)
+                                    resume=args.resume, skip=get_skiplist(args.skip))
         if args.files:
             with Mkchdir('files'):
                 archive_files(yga)
