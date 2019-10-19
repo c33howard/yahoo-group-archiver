@@ -22,7 +22,7 @@ def get_best_photoinfo(photoInfoArr):
     return best
 
 
-def archive_email(yga, reattach=True, save=True):
+def archive_email(yga, reattach=True, save=True, resume=False):
     msg_json = yga.messages()
     count = msg_json['totalRecords']
 
@@ -31,6 +31,11 @@ def archive_email(yga, reattach=True, save=True):
 
     for message in msg_json['messages']:
         id = message['messageId']
+        fname = "%s.eml" % (id,)
+
+        if resume and os.path.isfile(fname):
+            print "* Skipping %s as it already exists" % (id)
+            continue
 
         print "* Fetching raw message #%d of %d" % (id,count)
         raw_json = yga.messages(id, 'raw')
@@ -64,7 +69,6 @@ def archive_email(yga, reattach=True, save=True):
                             email.encoders.encode_base64(part)
                             del atts[fname]
 
-        fname = "%s.eml" % (id,)
         with file(fname, 'w') as f:
             f.write(eml.as_string(unixfrom=False))
 
@@ -154,6 +158,8 @@ if __name__ == "__main__":
             help='If no password supplied, will be requested on the console')
     p.add_argument('-ct', '--cookie_t', type=str)
     p.add_argument('-cy', '--cookie_y', type=str)
+    p.add_argument('-m', '--resume', action='store_true',
+            help='Resume download from the cloud; skips messages already on local disk')
 
     po = p.add_argument_group(title='What to archive', description='By default, all the below.')
     po.add_argument('-e', '--email', action='store_true',
@@ -189,7 +195,8 @@ if __name__ == "__main__":
     with Mkchdir(args.group):
         if args.email:
             with Mkchdir('email'):
-                archive_email(yga, reattach=(not args.no_reattach), save=(not args.no_save))
+                archive_email(yga, reattach=(not args.no_reattach), save=(not args.no_save),
+                                    resume=args.resume)
         if args.files:
             with Mkchdir('files'):
                 archive_files(yga)
