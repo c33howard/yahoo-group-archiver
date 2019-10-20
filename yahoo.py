@@ -31,9 +31,9 @@ def archive_email(yga, reattach=True, save=True, resume=False, skip=[]):
 
     for message in msg_json['messages']:
         id = message['messageId']
-        fname = "%s.eml" % (id,)
+        eml_fname = "%s.eml" % (id,)
 
-        if resume and os.path.isfile(fname):
+        if resume and os.path.isfile(eml_fname):
             print "* Skipping %s as it already exists" % (id)
             continue
 
@@ -61,19 +61,19 @@ def archive_email(yga, reattach=True, save=True, resume=False, skip=[]):
                         atts[attach['filename']] = yga.get_file(photoinfo['displayURL'])
 
                     if save:
-                        fname = "%s-%s" % (id, basename(attach['filename']))
-                        with file(fname, 'wb') as f:
+                        attach_fname = "%s-%s" % (id, basename(attach['filename']))
+                        with file(attach_fname, 'wb') as f:
                             f.write(atts[attach['filename']])
 
                 if reattach:
                     for part in eml.walk():
-                        fname = part.get_filename()
-                        if fname and fname in atts:
-                            part.set_payload(atts[fname])
+                        part_fname = part.get_filename()
+                        if part_fname and part_fname in atts:
+                            part.set_payload(atts[part_fname])
                             email.encoders.encode_base64(part)
-                            del atts[fname]
+                            del atts[part_fname]
 
-        with file(fname, 'w') as f:
+        with file(eml_fname, 'w') as f:
             f.write(eml.as_string(unixfrom=False))
 
 def archive_files(yga, subdir=None):
