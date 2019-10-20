@@ -76,7 +76,7 @@ def archive_email(yga, reattach=True, save=True, resume=False, skip=[]):
         with file(eml_fname, 'w') as f:
             f.write(eml.as_string(unixfrom=False))
 
-def archive_files(yga, subdir=None):
+def archive_files(yga, subdir=None, resume=False):
     if subdir:
         file_json = yga.files(sfpath=subdir)
     else:
@@ -92,6 +92,10 @@ def archive_files(yga, subdir=None):
         if path['type'] == 0:
             # Regular file
             name = unescape_html(path['fileName'])
+            if resume and os.path.isfile(name):
+                print "* Skipping %s (%d/%d) as it already exists" % (name, n, sz)
+                continue
+
             print "* Fetching file '%s' (%d/%d)" % (name, n, sz)
             with open(basename(name), 'wb') as f:
                 yga.download_file(path['downloadURL'], f)
@@ -101,9 +105,9 @@ def archive_files(yga, subdir=None):
             print "* Fetching directory '%s' (%d/%d)" % (path['fileName'], n, sz)
             with Mkchdir(basename(path['fileName']).replace('.', '')):
                 pathURI = urllib.unquote(path['pathURI'])
-                archive_files(yga, subdir=pathURI)
+                archive_files(yga, subdir=pathURI, resume=resume)
 
-def archive_photos(yga):
+def archive_photos(yga, resume=False):
     albums = yga.albums()
     n = 0
 
@@ -120,23 +124,35 @@ def archive_photos(yga):
             for photo in photos['photos']:
                 p += 1
                 pname = unescape_html(photo['photoName'])
-                print "** Fetching photo '%s' (%d/%d)" % (pname, p, photos['total'])
 
                 photoinfo = get_best_photoinfo(photo['photoInfo'])
                 fname = "%d-%s.jpg" % (photo['photoId'], basename(pname))
+
+                if resume and os.path.isfile(fname):
+                    print "** Skipping %s as it already exists" % (fname)
+                    continue
+
+                print "** Fetching photo '%s' (%d/%d)" % (pname, p, photos['total'])
+
                 with open(fname, 'wb') as f:
                     yga.download_file(photoinfo['displayURL'], f)
 
-def archive_db(yga, group):
+def archive_db(yga, group, resume=False):
     json = yga.database()
     n = 0
     nts = len(json['tables'])
     for table in json['tables']:
         n += 1
-        print "* Downloading database table '%s' (%d/%d)" % (table['name'], n, nts)
 
         name = basename(table['name']) + '.csv'
         uri = "https://groups.yahoo.com/neo/groups/%s/database/%s/records/export?format=csv" % (group, table['tableId'])
+
+        if resume and os.path.isfile(name):
+            print "* Skipping %s as it already exists" % (name)
+            continue
+
+        print "* Downloading database table '%s' (%d/%d)" % (table['name'], n, nts)
+
         with open(name, 'w') as f:
             yga.download_file(uri, f)
 
@@ -210,10 +226,10 @@ if __name__ == "__main__":
                                     resume=args.resume, skip=get_skiplist(args.skip))
         if args.files:
             with Mkchdir('files'):
-                archive_files(yga)
+                archive_files(yga, resume=args.resume)
         if args.photos:
             with Mkchdir('photos'):
-                archive_photos(yga)
+                archive_photos(yga, resume=args.resume)
         if args.database:
             with Mkchdir('databases'):
-                archive_db(yga, args.group)
+                archive_db(yga, args.group, resume=args.resume)
